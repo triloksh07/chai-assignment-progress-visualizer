@@ -1,4 +1,4 @@
-# Chai - Progress Visualizer
+# ChaiAssignment - Progress Visualizer
 
 A robust, full-stack visualizer designed to track GitHub Classroom autograding assignments for the Chai Aur Code cohort. It fetches and parse raw CI/CD workflow logs from AWS S3, presenting them in a clean, distributed macro-view dashboard.
 
