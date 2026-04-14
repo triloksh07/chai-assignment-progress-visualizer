@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getToken } from "next-auth/jwt";
 import { GitHubRepoResponse, ClassroomRepo } from '@/types';
 
+// 🛑 FORCE DYNAMIC: Never cache the user's repository list
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: NextRequest) {
     try {
         // SECURITY FIX: Read JWT directly, server-side only
@@ -19,7 +22,8 @@ export async function GET(req: NextRequest) {
             headers: {
                 'Authorization': `Bearer ${githubToken}`,
                 'Accept': 'application/vnd.github.v3+json'
-            }
+            },
+            cache: 'no-store' // EXPLICITLY DISABLE FETCH CACHE
         });
 
         if (!response.ok) throw new Error(`GitHub API Error: ${response.status}`);

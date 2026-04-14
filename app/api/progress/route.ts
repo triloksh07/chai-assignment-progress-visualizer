@@ -3,6 +3,9 @@ import { getToken } from "next-auth/jwt";
 import { AutogradingConfig, TestResult, ProgressData } from '@/types';
 import { logger } from '@/lib/logger';
 
+// 🛑 FORCE DYNAMIC: Completely disables Next.js server-side caching for this entire route
+export const dynamic = 'force-dynamic';
+
 // 1. Strict shapes for GitHub's various API responses
 interface GitHubFileContent { content: string; }
 interface GitHubCommit { sha: string; }
@@ -26,7 +29,8 @@ async function fetchGitHub<T>(url: string, token: string, asText = false, retrie
                     'Authorization': `Bearer ${token}`,
                     'Accept': 'application/vnd.github.v3+json',
                     'X-GitHub-Api-Version': '2022-11-28'
-                }
+                },
+                cache: 'no-store' // EXPLICITLY DISABLE FETCH CACHE
             });
 
             const remaining = response.headers.get('x-ratelimit-remaining');
