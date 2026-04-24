@@ -227,6 +227,13 @@ export default function Dashboard() {
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
     useEffect(() => {
+        if (session?.error === "RefreshAccessTokenError") {
+            console.warn("Refresh token expired. Forcing re-authentication.");
+            signIn('github'); // Boot them to the login screen securely
+        }
+    }, [session]);
+
+    useEffect(() => {
         if (status === 'authenticated') {
             loadReposFromDB();
         }
