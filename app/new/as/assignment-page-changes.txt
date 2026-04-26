@@ -1,0 +1,103 @@
+// ❌ REMOVE 'use client' - This is now a Server Component
+import Link from 'next/link';
+import { AssignmentTelemetryClient } from './AssignmentTelemetryClient';
+
+// Server Components receive searchParams via props
+export default function AssignmentPage({
+  searchParams,
+}: {
+  searchParams: { repo?: string };
+}) {
+  const repoParam = searchParams.repo;
+
+  // Static Server-Rendered Header & Layout
+  return (
+    <div className="relative flex flex-col min-h-screen bg-brand-dark text-text-primary font-sans overflow-x-hidden">
+      
+      {/* App Header (Static HTML) */}
+      <header className="app-header">
+         <div className="flex items-center gap-3 font-bold text-lg tracking-tight">
+            <span className="font-display">GradeVisualizer</span>
+         </div>
+         {/* ... Rest of your static header ... */}
+      </header>
+
+      <main className="page-container">
+        <div className="w-full max-w-[1000px] flex flex-col">
+          
+          <Link href="/main-dashboard" className="inline-flex items-center gap-2 text-text-muted text-[13px] font-medium mb-10 transition-colors hover:text-text-primary w-fit">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+            Back to Control Room
+          </Link>
+
+          {/* Inject the highly dynamic Client Component here.
+            We pass the repo string as a simple prop.
+          */}
+          {repoParam ? (
+             <AssignmentTelemetryClient repoFullName={repoParam} />
+          ) : (
+             <div className="glass-card max-w-md w-full text-center flex flex-col gap-4 p-10 mt-10">
+                <span className="text-4xl mb-2">📡</span>
+                <h1 className="text-xl font-display font-bold">No Repository Selected</h1>
+             </div>
+          )}
+
+        </div>
+      </main>
+    </div>
+  );
+}
+
+// =======================================================================
+
+'use client'; // This is the ONLY file that needs this directive
+
+import { useState, useEffect } from 'react';
+import { useAssignmentSync } from '@/hooks/useAssignmentSync';
+
+export function AssignmentTelemetryClient({ repoFullName }: { repoFullName: string }) {
+  const [isClient, setIsClient] = useState(false);
+
+  // Safe Hydration Bypass - Only runs in the browser
+  useEffect(() => setIsClient(true), []);
+
+  const { progress, status, error, runHeavySync } = useAssignmentSync(repoFullName, 0);
+
+  // While SSR is happening, return a skeleton that matches the layout
+  // so the page doesn't jump when the client takes over.
+  if (!isClient) {
+    return <div className="animate-pulse bg-ui-card h-96 rounded-xl border border-ui-border"></div>;
+  }
+
+  // --- STATE TRANSLATOR (Hook Data -> Visual States) ---
+  const isLoading = status === 'fetching' || status === 'polling';
+  let uiState: 'stale' | 'fetching' | 'success' | 'error' = 'stale';
+  let statusText = 'Cached (Sleeping)';
+  
+  if (isLoading) {
+      uiState = 'fetching';
+  } else if (error && !progress) {
+      uiState = 'error';
+  } // ... rest of your state logic ...
+
+  const cleanName = repoFullName.split('/')[1]?.replace(/-[a-zA-Z0-9]+$/, '') || repoFullName;
+
+  return (
+    <div className="flex flex-col gap-6">
+      {/* Paste all the dynamic SWR visual components here:
+        - The Assignment Header Summary (Score, Test Matrix)
+        - The 3 Telemetry Cards (Cache, Locks, Network)
+        - The mapped Test Runs list
+      */}
+      
+      <div className="flex justify-between items-start mb-12 gap-6">
+          <div className="flex flex-col">
+              <div className="label-micro mb-3">{repoFullName.split('/')[0].toUpperCase()}</div>
+              <h1 className="font-display text-[3rem] font-bold text-white mb-4">{cleanName}</h1>
+          </div>
+          {/* ... Rest of your dynamic UI ... */}
+      </div>
+
+    </div>
+  );
+}
