@@ -30,6 +30,6 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
     "**/*.mts"
-, "app/v6/page.jsx"  ],
+, "app/v6/page.jsx", "app/_components/AuthProvider.js"  ],
   "exclude": ["node_modules"]
 }

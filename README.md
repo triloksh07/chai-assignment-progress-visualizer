@@ -1,4 +1,4 @@
-# ChaiAssignment - Progress Visualizer
+# GradeVisualizer - Assignments Progress Tracker
 
 A robust, full-stack visualizer designed to track GitHub Classroom autograding assignments for the Chai Aur Code cohort. It securely fetches and parses raw GitHub Actions workflow logs from AWS S3, providing a distributed, macro-view dashboard of all active assignments. Built with IndexedDB for instant, offline-surviving caching and NextAuth for seamless, zero-friction GitHub OAuth integration.
 
@@ -16,7 +16,7 @@ It strictly requests **Read-Only** access to:
 
 - `Actions` (To read workflow statuses and download test logs)
 - `Contents` (To read the local `autograding.json` rule set)
-Zero write access is requested or required.
+  Zero write access is requested or required.
 
 ## 🛠️ Local Development Setup
 

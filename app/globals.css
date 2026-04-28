@@ -1,26 +1,102 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Tailwind v4 Configuration 
+  This replaces the old tailwind.config.ts file
+*/
+@theme {
+  /* Brand & Backgrounds */
+  --color-brand-dark: #0D0D0F;
+  --color-brand-header: #0A0A0C;
+  --color-brand-panel: #1E1E21;
+  --color-brand-terminal: #141415;
+  --color-brand-orange: #FF5B14;
+  --color-brand-red: #FF2B4F;
+
+  /* Status Colors */
+  --color-status-green: #2ECC71;
+  --color-status-blue: #3498DB;
+  --color-status-orange: #F39C12;
+  --color-status-red: #E74C3C;
+
+  /* Typography Hierarchy */
+  --color-text-primary: #FFFFFF;
+  --color-text-muted: #88888B;
+  --color-text-dim: #555558;
+
+  /* Glassmorphism UI Surfaces */
+  --color-ui-card: rgba(255, 255, 255, 0.02);
+  --color-ui-card-hover: rgba(255, 255, 255, 0.04);
+  --color-ui-border: rgba(255, 255, 255, 0.08);
+  --color-ui-border-light: rgba(255, 255, 255, 0.05);
+
+  /* Gradients */
+  --background-image-gradient-brand: linear-gradient(90deg, #FF5B14, #FF2B4F);
+
+  /* Fonts (Ensure your CSS variables --font-inter etc. are loaded in layout.tsx) */
+  --font-sans: var(--font-inter), sans-serif;
+  --font-display: var(--font-poppins), sans-serif;
+  --font-mono: Menlo, Monaco, Courier New, monospace;
+
+  /* Custom Animations */
+  --animate-ticker: scroll 20s linear infinite;
+  --animate-pulse-glow: pulseGlow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* Keyframes */
+@keyframes scroll {
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@keyframes pulseGlow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Base Styles */
+@layer base {
+  body {
+    @apply bg-brand-dark text-text-primary font-sans antialiased overflow-x-hidden min-h-screen;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Semantic Components */
+@layer components {
+  /* --- Typography --- */
+  .text-gradient {
+    @apply bg-gradient-brand bg-clip-text text-transparent;
+  }
+  .label-micro {
+    @apply text-[0.65rem] md:text-xs font-semibold text-text-dim tracking-widest uppercase;
+  }
+
+  /* --- Layout Shells --- */
+  .app-header {
+    @apply h-16 bg-brand-header border-b border-ui-border flex items-center justify-between px-6 z-50;
+  }
+  .page-container {
+    @apply flex-1 flex flex-col items-center pt-12 pb-24 px-6;
+  }
+  .content-wrapper {
+    @apply w-full max-w-[1200px] flex flex-col gap-8;
+  }
+
+  /* --- Data Cards --- */
+  .glass-card {
+    @apply bg-ui-card border border-ui-border rounded-xl p-6 transition-transform duration-200 hover:-translate-y-0.5 relative overflow-hidden;
+  }
+  .live-banner {
+    @apply bg-ui-card border border-ui-border rounded-lg py-3 px-4 flex items-center gap-4 font-mono text-xs whitespace-nowrap overflow-hidden;
+  }
+  
+  /* --- Interactive Controls --- */
+  .btn-primary {
+    @apply inline-flex items-center gap-2 px-6 py-3 rounded-md font-semibold text-[13.5px] bg-gradient-brand text-white border-none shadow-[0_4px_14px_rgba(255,91,20,0.4)] hover:shadow-[0_6px_20px_rgba(255,91,20,0.6)] hover:-translate-y-[1px] transition-all duration-200 cursor-pointer;
+  }
+  .filter-pill {
+    @apply border border-ui-border bg-ui-card rounded-full py-1 px-3 text-[13px] font-medium text-text-muted flex items-center gap-2 cursor-pointer transition-colors duration-200 hover:border-white/20 hover:text-white;
+  }
+  .filter-pill-active {
+    @apply bg-white text-black border-white;
+  }
 }
