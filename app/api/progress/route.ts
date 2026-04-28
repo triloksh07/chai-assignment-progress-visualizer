@@ -6,13 +6,13 @@ import { logger } from '@/lib/logger';
 // 🛑 FORCE DYNAMIC: Completely disables Next.js server-side caching for this entire route
 export const dynamic = 'force-dynamic';
 
-// 1. Strict shapes for GitHub's various API responses
+// Strict shapes for GitHub's various API responses
 interface GitHubFileContent { content: string; }
 interface GitHubCommit { sha: string; }
 interface GitHubWorkflowRuns { total_count: number; workflow_runs: { id: number }[]; }
 interface GitHubJobs { jobs: { id: number; name: string }[]; }
 
-// 2. The Generic Response Wrapper
+// The Generic Response Wrapper
 interface GitHubResponse<T> {
     ok: boolean;
     status: number;
@@ -20,7 +20,7 @@ interface GitHubResponse<T> {
     rateLimitRemaining: string | null;
 }
 
-// 3. The Generic Fetch Wrapper
+// The Generic Fetch Wrapper
 async function fetchGitHub<T>(url: string, token: string, asText = false, retries = 3): Promise<GitHubResponse<T>> {
     for (let i = 0; i < retries; i++) {
         try {
@@ -69,7 +69,11 @@ async function fetchGitHub<T>(url: string, token: string, asText = false, retrie
     throw new Error("Fetch failed after retries");
 }
 
-function createPendingScorecard(autogradingData: AutogradingConfig, commitMsg: string): ProgressData {
+function createPendingScorecard(
+    autogradingData: AutogradingConfig,
+    statusMsg?: string,
+    commitHash?: string,
+): ProgressData {
     const results: TestResult[] = autogradingData.tests.map((test) => ({
         test: test.name,
         earned: 0,
@@ -77,7 +81,10 @@ function createPendingScorecard(autogradingData: AutogradingConfig, commitMsg: s
         status: 'pending'
     }));
     const totalMax = results.reduce((acc, curr) => acc + curr.max, 0);
-    return { results, totalEarned: 0, totalMax, commit: commitMsg };
+
+    const finalCommit = commitHash ? commitHash.substring(0, 7) : "";
+
+    return { results, totalEarned: 0, totalMax, commit: finalCommit, workflowStatus: statusMsg };
 }
 
 export async function POST(req: NextRequest) {
@@ -108,14 +115,34 @@ export async function POST(req: NextRequest) {
 
         // 1. Fetch Source of Truth & Rate Limit (If this fails, they haven't even accepted the assignment properly)
 
-        // Note the <GitHubFileContent> generic injection!
         const fileRes = await fetchGitHub<GitHubFileContent>(`repos/${repoPath}/contents/.github/classroom/autograding.json`, githubToken);
         const currentRateLimit = fileRes.rateLimitRemaining || 'Unknown';
 
-        if (!fileRes.ok || !fileRes.data) {
-            logger.warn({ repoPath, rateLimitRemaining: currentRateLimit }, 'Exit: No autograding.json found');
-            return NextResponse.json({ error: "No autograding.json found." }, { status: 404 });
+        if (!fileRes.ok) {
+            // Case A: Token expired or revoked
+            if (fileRes.status === 401) {
+                logger.warn({ repoPath }, 'GitHub token expired or unauthorized');
+                return NextResponse.json({ error: "GitHub session expired. Please sign out and reconnect." }, { status: 401 });
+            }
+            // Case B: GitHub Rate Limiting
+            if (fileRes.status === 403 || fileRes.status === 429) {
+                logger.warn({ repoPath, rateLimitRemaining: currentRateLimit }, 'GitHub API Rate Limit Hit');
+                return NextResponse.json({ error: "GitHub API rate limit exceeded. Please wait." }, { status: 429 });
+            }
+            // Case C: The file ACTUALLY does not exist 
+            if (fileRes.status === 404) {
+                logger.warn({ repoPath }, 'Exit: No autograding.json found (True 404)');
+                return NextResponse.json({ error: "No autograding.json found. Manual review required." }, { status: 404 });
+            }
+
+            // Case D: Generic Fallback
+            return NextResponse.json({ error: `GitHub API Error: ${fileRes.status}` }, { status: fileRes.status });
         }
+
+        if (!fileRes.data || !fileRes.data.content) {
+            return NextResponse.json({ error: "Malformed autograding file." }, { status: 500 });
+        }
+
         const autogradingData: AutogradingConfig = JSON.parse(Buffer.from(fileRes.data.content, 'base64').toString('utf-8'));
 
         // 2. Check for Commits (Catches completely empty repos)
@@ -124,13 +151,14 @@ export async function POST(req: NextRequest) {
             logger.info({ repoPath, state: 'No commits yet', rateLimitRemaining: currentRateLimit }, 'Exit: Pending scorecard returned');
             return NextResponse.json(createPendingScorecard(autogradingData, "No commits yet"));
         }
+        
         const latestCommit = commitRes.data[0].sha;
 
         // 3. Check for Workflow Runs
         const runsRes = await fetchGitHub<GitHubWorkflowRuns>(`repos/${repoPath}/actions/runs?head_sha=${latestCommit}`, githubToken);
         if (!runsRes.ok || !runsRes.data || runsRes.data.total_count === 0) {
             logger.info({ repoPath, state: 'Action Pending', rateLimitRemaining: currentRateLimit }, 'Exit: Pending scorecard returned');
-            return NextResponse.json(createPendingScorecard(autogradingData, "Action Pending"));
+            return NextResponse.json(createPendingScorecard(autogradingData, "Pending", latestCommit));
         }
         const runId = runsRes.data.workflow_runs[0].id;
 
@@ -139,14 +167,14 @@ export async function POST(req: NextRequest) {
         const autogradingJob = jobsRes.data?.jobs?.find(j => j.name.toLowerCase().includes('autograding'));
         if (!autogradingJob) {
             logger.info({ repoPath, state: 'Job queued', rateLimitRemaining: currentRateLimit }, 'Exit: Pending scorecard returned');
-            return NextResponse.json(createPendingScorecard(autogradingData, "Job queued"));
+            return NextResponse.json(createPendingScorecard(autogradingData, "Job queued", latestCommit));
         }
 
         // 5. Download Raw Logs
         const logRes = await fetchGitHub<string>(`repos/${repoPath}/actions/jobs/${autogradingJob.id}/logs`, githubToken, true);
         if (!logRes.ok || !logRes.data) {
             logger.info({ repoPath, state: 'Waiting for S3 logs', rateLimitRemaining: currentRateLimit }, 'Exit: Pending scorecard returned');
-            return NextResponse.json(createPendingScorecard(autogradingData, "Waiting for logs..."));
+            return NextResponse.json(createPendingScorecard(autogradingData, "Waiting for logs...", latestCommit));
         }
 
         const rawLog = logRes.data;

@@ -1,7 +1,5 @@
-import Link from 'next/link';
 import React from 'react';
 
-// The exact data shape your UI expects, hardcoded for the demo.
 const mockAssignments = [
   {
     id: 1,
@@ -48,33 +46,7 @@ export default function DemoDashboardPage() {
   return (
     <div className="relative flex flex-col min-h-screen bg-brand-dark text-text-primary font-sans overflow-x-hidden">
 
-      {/* App Header (Static for Demo) */}
-      <header className="app-header">
-        <div className="flex-1">
-          <div className="flex items-center gap-3">
-            <div className="flex">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="4" fill="#FF5B14" /></svg>
-            </div>
-            <div className="flex flex-col">
-              <span className="font-display font-bold text-base leading-none tracking-tight">GradeVisualizer</span>
-              <span className="text-[0.55rem] text-text-muted font-semibold tracking-widest mt-0.5 uppercase">LIVE DEMO MODE</span>
-            </div>
-          </div>
-        </div>
-
-        <nav className="hidden md:flex h-full">
-          <Link href="/new/lp2" className="h-16 px-4 flex items-center text-text-muted text-[13px] font-medium transition-colors hover:text-brand-orange">Exit Demo</Link>
-        </nav>
-
-        <div className="flex-1 flex justify-end items-center gap-4">
-          <div className="hidden md:flex items-center gap-2 font-mono text-xs text-brand-orange">
-            <div className="w-1.5 h-1.5 rounded-full bg-brand-orange shadow-[0_0_8px_#FF5B14] animate-pulse"></div>
-            simulated data
-          </div>
-        </div>
-      </header>
-
-      <main className="page-container w-full max-w-[1600px] mx-auto">
+      <main className="page-container w-full max-w-7xl mx-auto">
         <div className="w-full flex flex-col gap-8">
 
           {/* Control Room Header */}
@@ -119,9 +91,8 @@ export default function DemoDashboardPage() {
 }
 
 // 🧱 STATIC COMPONENT: DEMO ASSIGNMENT CARD
-// A simplified version of your real card that doesn't use hooks.
 function DemoAssignmentCard({ repo }: { repo: any }) {
-  // Premium Tailwind Mapping (Identical to your real dashboard)
+  // Premium Tailwind Mapping (Identical to real dashboard)
   const stateMap = {
     stale: { card: 'border-ui-border-light', pill: 'text-text-muted bg-white/5 border-white/10', bar: 'bg-text-dim', scoreText: 'text-white' },
     fetching: { card: 'border-status-blue/30 shadow-[0_0_20px_rgba(52,152,219,0.05)]', pill: 'text-status-blue bg-status-blue/10 border-status-blue/20', bar: 'bg-status-blue', scoreText: 'text-text-dim' },

@@ -59,6 +59,13 @@ export function useAssignmentSync(repoFullName: string, cascadeDelayMs: number) 
 
         setProgress(data);
         await set(cacheKey, data);
+
+        // fire global event to wake up the aggregator
+        if(typeof window !== 'undefined'){
+          console.info("[EVENT FIRED]: cac_cache_updated");
+          window.dispatchEvent(new Event('cac_cache_updated'));
+        }
+
         setError(null);
       } catch (err: any) {
         logger.error(`❌ [FETCH ERROR] ${repoFullName}: ${err.message}`);

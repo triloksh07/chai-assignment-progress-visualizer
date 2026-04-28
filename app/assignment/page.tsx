@@ -1,260 +1,302 @@
-import Link from 'next/link';
+'use client';
 
-export default function AssignmentPage() {
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+import { useEffect, useState, Suspense } from 'react';
+import { useAssignmentSync } from '@/hooks/useAssignmentSync';
+
+function AssignmentContent() {
+  const searchParams = useSearchParams();
+  const repoParam = searchParams.get('repo'); // e.g., ?repo=chaicodehq/cs231
+  const { data: session } = useSession();
+  const [isClient, setIsClient] = useState(false);
+
+  // Prevent Hydration mismatches with IndexedDB
+  useEffect(() => {
+    const timer = setTimeout(() => setIsClient(true), 0);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Initialize the SWR Engine for this specific repository (0 delay, it's the only one on screen)
+  const { progress, status, error, runHeavySync } = useAssignmentSync(repoParam || '', 0);
+
+  if (!isClient) return null;
+
+  if (!repoParam) {
+    return (
+      <div className="min-h-screen bg-brand-dark flex flex-col items-center justify-center text-text-primary p-4">
+        <div className="glass-card max-w-md w-full text-center flex flex-col gap-4 p-10 !transform-none cursor-default">
+          <span className="text-4xl mb-2">📡</span>
+          <h1 className="text-xl font-display font-bold">No Repository Selected</h1>
+          <p className="text-text-muted text-sm">Please select an assignment from the Control Room to view its telemetry.</p>
+          <Link href="/main-dashboard" className="mt-4 btn-primary justify-center">Return to Control Room</Link>
+        </div>
+      </div>
+    );
+  }
+
+  // --- STATE TRANSLATOR (Hook Data -> Visual States) ---
+  const isLoading = status === 'fetching' || status === 'polling';
+  let uiState: 'stale' | 'fetching' | 'success' | 'error' = 'stale';
+  let statusText = 'Cached (Sleeping)';
+
+  if (isLoading) {
+    uiState = 'fetching';
+    statusText = 'Extracting AWS Logs...';
+  } else if (error && !progress) {
+    // True fatal error
+    uiState = 'error';
+    statusText = 'Network Error / 404';
+  } else if (progress) {
+    // WE HAVE DATA: Let the score dictate the colors
+    if (progress.totalMax > 0 && progress.totalEarned === progress.totalMax) {
+      uiState = 'success';
+      statusText = error ? 'Tests Passed (Cached)' : 'Tests Passed';
+    } else if (progress.totalEarned > 0) {
+      uiState = 'fetching';
+      statusText = error ? 'In Progress (Cached)' : 'In Progress';
+    } else {
+      uiState = 'stale';
+      statusText = error ? 'Pending (Cached)' : 'Pending';
+    }
+  }
+
+  const cleanName = repoParam.split('/')[1]?.replace(/-[a-zA-Z0-9]+$/, '') || repoParam;
+  const displayScore = progress ? progress.totalEarned : '?';
+  const displayMax = progress ? progress.totalMax : '--';
+  const totalTests = progress?.results?.length || 0;
+  const failingTests = progress?.results?.filter(t => t.status !== 'passed').length || 0;
+
   return (
     <div className="relative flex flex-col min-h-screen bg-brand-dark text-text-primary font-sans overflow-x-hidden">
-      
-      {/* App Header */}
-      <header className="app-header">
-        <div className="flex-1">
-          <div className="flex items-center gap-3">
-            <div className="flex">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect width="24" height="24" rx="4" fill="#FF5B14" />
-                <path d="M8 17L14 12L8 7" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </div>
-            <div className="flex flex-col">
-              <span className="font-display font-bold text-base leading-none tracking-tight">Telemetry.dev</span>
-              <span className="text-[0.55rem] text-text-muted font-semibold tracking-widest mt-0.5 uppercase">CLASSROOM POLLING ENGINE</span>
-            </div>
-          </div>
-        </div>
-        
-        <nav className="flex h-full">
-          <Link href="/dashboard" className="h-16 px-4 flex items-center text-text-muted text-[13px] font-medium transition-colors hover:text-text-primary">Dashboard</Link>
-          <Link href="/assignments" className="h-16 px-4 flex items-center text-text-primary text-[13px] font-medium relative after:content-[''] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-brand-orange">Assignment</Link>
-          <Link href="/settings" className="h-16 px-4 flex items-center text-text-muted text-[13px] font-medium transition-colors hover:text-text-primary">Settings</Link>
-        </nav>
-        
-        <div className="flex-1 flex justify-end items-center gap-4">
-          <div className="flex items-center gap-2 font-mono text-xs text-text-muted">
-            <div className="w-1.5 h-1.5 rounded-full bg-status-green shadow-[0_0_8px_#2ECC71]"></div>
-            polling • 30s
-          </div>
-          <button className="bg-transparent border border-ui-border-light rounded-md w-8 h-8 flex items-center justify-center text-text-muted cursor-pointer transition-colors hover:bg-ui-card hover:text-text-primary">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-          </button>
-          <div className="flex items-center gap-2 px-3 h-8 rounded-md border border-ui-border-light bg-ui-card text-[13px] text-text-primary font-medium cursor-pointer transition-colors hover:border-ui-border">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
-            octocat
-          </div>
-        </div>
-      </header>
 
       {/* Main Content Area */}
       <main className="page-container">
-        {/* We override the max-w to 960px for this specific detail page to maintain reading measure */}
-        <div className="w-full max-w-[960px] flex flex-col">
-          
-          {/* Back Navigation */}
+        {/* Constrain width for better reading measure on detail pages */}
+        <div className="w-full max-w-250 flex flex-col">
+
           <Link href="/dashboard" className="inline-flex items-center gap-2 text-text-muted text-[13px] font-medium mb-10 transition-colors hover:text-text-primary w-fit">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
-            Back to control room
+            Back to Control Room
           </Link>
 
           {/* Assignment Header Summary */}
           <div className="flex flex-col md:flex-row justify-between items-start mb-12 gap-6">
             <div className="flex flex-col">
-              <div className="label-micro mb-3">CS 231 • ALGORITHMS</div>
-              <h1 className="font-display text-[3rem] font-bold leading-[1.1] text-white mb-4 tracking-tight">Huffman Compression</h1>
-              
+              <div className="label-micro mb-3">
+                {repoParam.split('/')[0].toUpperCase()}
+              </div>
+
+              <h1 className="font-display text-[3rem] font-bold leading-[1.1] text-white mb-4 tracking-tight">
+                <a
+                  href={`https://github.com/${repoParam}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group inline-flex items-center gap-4 hover:text-brand-orange transition-colors"
+                  title="Open Repository in GitHub"
+                >
+                  {cleanName}
+                </a>
+              </h1>
+
               <div className="flex flex-wrap items-center gap-3 text-text-muted text-[13px] font-mono">
-                <span className="flex items-center gap-2">
+                <span className="flex items-center gap-2 bg-white/5 border border-ui-border-light px-2 py-0.5 rounded text-white">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="18" r="3"></circle><circle cx="6" cy="6" r="3"></circle><path d="M13 6h3a2 2 0 0 1 2 2v7"></path><line x1="6" y1="9" x2="6" y2="21"></line></svg>
-                  e10d5af
+                  {progress?.commit?.substring(0, 7) || 'waiting'}
                 </span>
                 <span className="text-text-dim">•</span>
-                <span>grade.yml</span>
-                <span className="text-text-dim">•</span>
-                <span className="flex items-center gap-2">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                  synced just now
+                <span className={uiState === 'error' ? 'text-brand-orange' : 'p-0.5 border border-status-blue/20 bg-status-blue/10 text-status-blue'}>
+                  {statusText}
                 </span>
+                {progress?.workflowStatus && (
+                  <>
+                    <span className="text-text-dim">•</span>
+                    <span className="text-brand-orange animate-pulse flex items-center gap-1">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                      {progress.workflowStatus}
+                    </span>
+                  </>
+                )}
               </div>
             </div>
 
-            <div className="glass-card flex py-6 px-8 gap-8 m-0 !transform-none hover:!translate-y-0 cursor-default">
+            {/* Dynamic Score Card */}
+            <div className={`glass-card flex py-6 px-8 gap-8 m-0 !transform-none cursor-default border ${uiState === 'success' ? 'border-status-green/30 shadow-[0_0_20px_rgba(46,204,113,0.05)]' : uiState === 'error' ? 'border-brand-orange/40' : 'border-ui-border'}`}>
               <div className="flex flex-col">
-                <div className="label-micro mb-2">SCORE</div>
+                <div className="label-micro mb-2">{error && progress ? 'CACHED SCORE' : 'LATEST SCORE'}</div>
                 <div className="flex items-baseline gap-1">
-                  <span className="font-display text-[2.5rem] font-bold text-brand-orange leading-none">94</span>
-                  <span className="text-sm text-text-dim">/100</span>
+                  <span className={`font-display text-[2.5rem] font-bold leading-none ${isLoading ? 'text-text-dim' : uiState === 'success' ? 'text-status-green' : 'text-white'}`}>
+                    {displayScore}
+                  </span>
+                  <span className="text-sm text-text-dim font-sans font-medium">/ {displayMax}</span>
                 </div>
               </div>
               <div className="w-px bg-ui-border"></div>
               <div className="flex flex-col">
-                <div className="label-micro mb-2">TESTS</div>
-                <div className="font-display text-2xl font-bold text-white leading-none mb-1">6/8</div>
-                <div className="text-xs text-text-muted">2 failing</div>
+                <div className="label-micro mb-2">TEST MATRIX</div>
+                <div className={`font-display text-2xl font-bold leading-none mb-1 ${isLoading ? 'text-text-dim' : 'text-white'}`}>
+                  {totalTests - failingTests} <span className="text-base text-text-dim font-sans font-medium">/ {totalTests}</span>
+                </div>
+                {failingTests > 0 ? (
+                  <div className="text-xs text-brand-orange font-medium">{failingTests} failing</div>
+                ) : (
+                  <div className="text-xs text-text-muted">All tests passed</div>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Stat Cards Row */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-            {/* Workflow Runtime */}
-            <div className="glass-card py-5 px-6 flex items-start gap-4 !transform-none hover:!translate-y-0 cursor-default">
-              <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-text-muted shrink-0">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-              </div>
-              <div className="flex flex-col gap-2">
-                <div className="label-micro">WORKFLOW RUNTIME</div>
-                <div className="text-[14px] font-medium text-white font-mono">1m 47s</div>
-              </div>
-            </div>
-
-            {/* Artifacts */}
-            <div className="glass-card py-5 px-6 flex items-start gap-4 !transform-none hover:!translate-y-0 cursor-default">
-              <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-text-muted shrink-0">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-              </div>
-              <div className="flex flex-col gap-2">
-                <div className="label-micro">ARTIFACTS</div>
-                <div className="text-[14px] font-medium text-white font-mono">3 files • 4.1MB</div>
-              </div>
-            </div>
-
-            {/* Run URL */}
-            <div className="glass-card py-5 px-6 flex items-start gap-4 !transform-none hover:!translate-y-0 cursor-default">
-              <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-text-muted shrink-0">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-              </div>
-              <div className="flex flex-col gap-2">
-                <div className="label-micro">RUN URL</div>
-                <Link href="#" className="text-[14px] font-medium text-text-muted font-mono underline decoration-dotted transition-colors hover:text-white">github.com/run/4182</Link>
-              </div>
-            </div>
-          </div>
-
-          {/* Test Runs Section */}
-          <div className="bg-ui-card border border-ui-border rounded-xl overflow-hidden">
-            <div className="p-6 md:px-8 border-b border-ui-border flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+          {/* Test Runs Section mapped to SWR progress.results */}
+          <div className="bg-ui-card border border-ui-border rounded-xl overflow-hidden mb-12">
+            <div className="p-6 md:px-8 border-b border-ui-border flex justify-between items-center bg-black/20">
               <div className="flex flex-col">
-                <div className="label-micro">AUTOGRADE.LOG</div>
-                <h2 className="font-display text-2xl font-bold text-white leading-none mt-2">Test runs</h2>
+                <div className="label-micro mb-1">EXTRACTED.LOG</div>
+                <h2 className="font-display text-xl font-bold text-white leading-none">Test Matrix</h2>
               </div>
-              <div className="flex gap-3">
-                <button className="bg-transparent border border-ui-border-light rounded-md px-3 py-2 flex items-center gap-2 text-text-muted text-xs font-medium cursor-pointer transition-colors hover:border-ui-border hover:text-white">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                  raw log
-                </button>
-                <button className="bg-transparent border border-ui-border-light rounded-md px-3 py-2 flex items-center gap-2 text-text-muted text-xs font-medium cursor-pointer transition-colors hover:border-ui-border hover:text-white">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-                  view on GitHub
-                </button>
-              </div>
+              <button
+                onClick={runHeavySync}
+                disabled={isLoading}
+                className="bg-white/5 border border-ui-border-light rounded-md px-4 py-2 flex items-center gap-2 text-text-primary text-xs font-medium cursor-pointer transition-colors hover:border-ui-border hover:bg-white/10 disabled:opacity-50"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" /></svg>
+                Force Sync
+              </button>
             </div>
 
             <div className="flex flex-col">
-              {/* Row 1 */}
-              <div className="grid grid-cols-[auto_1fr_auto] md:grid-cols-[2fr_1fr_auto] py-4 px-6 md:px-8 border-b border-ui-border-light items-center font-mono text-[13px] gap-4 last:border-none">
-                <div className="flex items-center gap-3 col-span-2 md:col-span-1">
-                  <div className="text-status-green flex items-center justify-center w-4 h-4 rounded-full border border-status-green/30 p-0.5 shrink-0">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  </div>
-                  <span className="text-white truncate">test_insert_root</span>
+              {isLoading && !progress?.results && (
+                <div className="py-12 flex flex-col items-center justify-center text-text-dim gap-4">
+                  <div className="w-6 h-6 border-2 border-status-blue border-t-transparent rounded-full animate-spin"></div>
+                  <span className="font-mono text-xs text-status-blue">Extracting AWS Logs server-side...</span>
                 </div>
-                <div className="hidden md:block text-brand-orange text-right pr-8 truncate"></div>
-                <div className="text-right text-text-muted shrink-0">12ms</div>
-              </div>
+              )}
 
-              {/* Row 2 */}
-              <div className="grid grid-cols-[auto_1fr_auto] md:grid-cols-[2fr_1fr_auto] py-4 px-6 md:px-8 border-b border-ui-border-light items-center font-mono text-[13px] gap-4 last:border-none">
-                <div className="flex items-center gap-3 col-span-2 md:col-span-1">
-                  <div className="text-status-green flex items-center justify-center w-4 h-4 rounded-full border border-status-green/30 p-0.5 shrink-0">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  </div>
-                  <span className="text-white truncate">test_balance_after_delete</span>
+              {error && !progress && (
+                <div className="py-8 px-8 text-brand-orange font-mono text-sm border-b border-brand-orange/20 bg-brand-orange/5">
+                  [NETWORK_ERROR] {error}
                 </div>
-                <div className="hidden md:block text-brand-orange text-right pr-8 truncate"></div>
-                <div className="text-right text-text-muted shrink-0">41ms</div>
-              </div>
+              )}
 
-              {/* Row 3 */}
-              <div className="grid grid-cols-[auto_1fr_auto] md:grid-cols-[2fr_1fr_auto] py-4 px-6 md:px-8 border-b border-ui-border-light items-center font-mono text-[13px] gap-4 last:border-none">
-                <div className="flex items-center gap-3 col-span-2 md:col-span-1">
-                  <div className="text-status-green flex items-center justify-center w-4 h-4 rounded-full border border-status-green/30 p-0.5 shrink-0">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  </div>
-                  <span className="text-white truncate">test_iterator_inorder</span>
+              {progress?.results && progress.results.length === 0 && (
+                <div className="py-8 px-8 text-text-muted font-mono text-sm text-center">
+                  No tests detected in workflow execution.
                 </div>
-                <div className="hidden md:block text-brand-orange text-right pr-8 truncate"></div>
-                <div className="text-right text-text-muted shrink-0">18ms</div>
-              </div>
+              )}
 
-              {/* Row 4 - Failed */}
-              <div className="grid grid-cols-[1fr_auto] md:grid-cols-[2fr_1fr_auto] py-4 px-6 md:px-8 border-b border-ui-border-light items-center font-mono text-[13px] gap-y-2 md:gap-4 last:border-none bg-brand-orange/5">
-                <div className="flex items-center gap-3 col-span-2 md:col-span-1">
-                  <div className="text-brand-orange flex items-center justify-center w-4 h-4 rounded-full border border-brand-orange/30 p-0.5 shrink-0">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                  </div>
-                  <span className="text-white truncate">test_height_invariant</span>
-                </div>
-                <div className="text-brand-orange md:text-right md:pr-8 truncate col-span-1 md:col-span-1 ml-7 md:ml-0">
-                  expected 4, got 5
-                </div>
-                <div className="text-right text-text-muted shrink-0 col-span-1 md:col-span-1">—</div>
-              </div>
+              {progress?.results && progress.results.map((test, i) => {
+                const isFailed = test.status !== 'passed' && test.status !== 'pending';
+                const isPending = test.status === 'pending';
 
-              {/* Row 5 */}
-              <div className="grid grid-cols-[auto_1fr_auto] md:grid-cols-[2fr_1fr_auto] py-4 px-6 md:px-8 border-b border-ui-border-light items-center font-mono text-[13px] gap-4 last:border-none">
-                <div className="flex items-center gap-3 col-span-2 md:col-span-1">
-                  <div className="text-status-green flex items-center justify-center w-4 h-4 rounded-full border border-status-green/30 p-0.5 shrink-0">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  </div>
-                  <span className="text-white truncate">test_rotation_left_right</span>
-                </div>
-                <div className="hidden md:block text-brand-orange text-right pr-8 truncate"></div>
-                <div className="text-right text-text-muted shrink-0">33ms</div>
-              </div>
+                return (
+                  <div key={i} className={`grid grid-cols-[1fr_auto] md:grid-cols-[2fr_1fr_auto] py-4 px-6 md:px-8 border-b border-ui-border-light items-center font-mono text-[13px] gap-y-2 md:gap-4 last:border-none ${isFailed ? 'bg-brand-red/5 border-l-2 border-l-brand-red' : isPending ? 'bg-brand-orange/5 border-l-2 border-l-brand-orange' : ''}`}>
 
-              {/* Row 6 */}
-              <div className="grid grid-cols-[auto_1fr_auto] md:grid-cols-[2fr_1fr_auto] py-4 px-6 md:px-8 border-b border-ui-border-light items-center font-mono text-[13px] gap-4 last:border-none">
-                <div className="flex items-center gap-3 col-span-2 md:col-span-1">
-                  <div className="text-status-green flex items-center justify-center w-4 h-4 rounded-full border border-status-green/30 p-0.5 shrink-0">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  </div>
-                  <span className="text-white truncate">test_bulk_load_100k</span>
-                </div>
-                <div className="hidden md:block text-brand-orange text-right pr-8 truncate"></div>
-                <div className="text-right text-text-muted shrink-0">1.2s</div>
-              </div>
+                    <div className="flex items-center gap-3 col-span-2 md:col-span-1 pr-4">
+                      <div className={`flex items-center justify-center w-4 h-4 rounded-full border p-0.5 shrink-0 ${isFailed ? 'text-brand-red border-brand-red/30' : isPending ? 'text-brand-orange border-brand-orange/30' : 'text-status-green border-status-green/30'}`}>
+                        {isFailed ? (
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        ) : isPending ? (
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                        ) : (
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        )}
+                      </div>
+                      <span className={`${isFailed ? 'text-white' : isPending ? 'text-text-muted' : 'text-white'} truncate`} title={test.test}>
+                        {test.test}
+                      </span>
+                    </div>
 
-              {/* Row 7 - Failed */}
-              <div className="grid grid-cols-[1fr_auto] md:grid-cols-[2fr_1fr_auto] py-4 px-6 md:px-8 border-b border-ui-border-light items-center font-mono text-[13px] gap-y-2 md:gap-4 last:border-none bg-brand-orange/5">
-                <div className="flex items-center gap-3 col-span-2 md:col-span-1">
-                  <div className="text-brand-orange flex items-center justify-center w-4 h-4 rounded-full border border-brand-orange/30 p-0.5 shrink-0">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                  </div>
-                  <span className="text-white truncate">test_delete_non_existent</span>
-                </div>
-                <div className="text-brand-orange md:text-right md:pr-8 truncate col-span-1 md:col-span-1 ml-7 md:ml-0">
-                  NullPointerException at line 142
-                </div>
-                <div className="text-right text-text-muted shrink-0 col-span-1 md:col-span-1">—</div>
-              </div>
+                    {/* Score / Output cell */}
+                    <div className={`md:text-right md:pr-8 truncate col-span-1 md:col-span-1 ml-7 md:ml-0 ${isFailed ? 'text-brand-red' : isPending ? 'text-brand-orange' : 'text-text-muted'}`}>
+                      {isFailed ? 'Execution Failed' : isPending ? 'Skipped / Pending' : 'Passed'}
+                    </div>
 
-              {/* Row 8 */}
-              <div className="grid grid-cols-[auto_1fr_auto] md:grid-cols-[2fr_1fr_auto] py-4 px-6 md:px-8 border-b border-ui-border-light items-center font-mono text-[13px] gap-4 last:border-none">
-                <div className="flex items-center gap-3 col-span-2 md:col-span-1">
-                  <div className="text-status-green flex items-center justify-center w-4 h-4 rounded-full border border-status-green/30 p-0.5 shrink-0">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    <div className={`text-right shrink-0 col-span-1 md:col-span-1 font-bold ${isFailed ? 'text-brand-red' : isPending ? 'text-brand-orange' : 'text-status-green'}`}>
+                      {test.earned} <span className="text-text-dim font-medium">/ {test.max}</span>
+                    </div>
                   </div>
-                  <span className="text-white truncate">test_serialize_roundtrip</span>
-                </div>
-                <div className="hidden md:block text-brand-orange text-right pr-8 truncate"></div>
-                <div className="text-right text-text-muted shrink-0">27ms</div>
-              </div>
+                );
+              })}
             </div>
           </div>
         </div>
       </main>
+    </div>
+  );
+}
 
-      {/* Sticky Badge */}
-      <div className="fixed bottom-6 right-6 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-black border border-ui-border text-white text-xs font-display font-medium z-50">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path><path d="M2 12h20"></path></svg>
-        Made with Emergent
+export default function AssignmentPage() {
+  return (
+    <Suspense fallback={<AssignmentSkeleton />}>
+      <AssignmentContent />
+    </Suspense>
+  );
+}
+
+function AssignmentSkeleton() {
+  return (
+    <div className="page-container">
+      <div className="w-full max-w-250 flex flex-col animate-pulse">
+
+        {/* Back Link Placeholder */}
+        <div className="w-32 h-4 bg-white/5 rounded mb-10"></div>
+
+        {/* Assignment Header Summary Skeleton */}
+        <div className="flex flex-col md:flex-row justify-between items-start mb-12 gap-6">
+          <div className="flex flex-col gap-4 w-full md:w-1/2">
+            <div className="w-20 h-3 bg-white/10 rounded"></div>
+            <div className="w-3/4 h-12 bg-white/5 rounded-lg"></div>
+            <div className="flex gap-3 mt-1">
+              <div className="w-24 h-6 bg-white/5 rounded border border-white/5"></div>
+              <div className="w-24 h-6 bg-white/5 rounded border border-white/5"></div>
+            </div>
+          </div>
+
+          {/* Score Card Skeleton */}
+          <div className="glass-card flex py-6 px-8 gap-8 m-0 w-full md:w-[320px] border-ui-border !transform-none">
+            <div className="flex flex-col gap-2 w-1/2">
+              <div className="w-24 h-3 bg-white/10 rounded"></div>
+              <div className="w-16 h-10 bg-white/10 rounded"></div>
+            </div>
+            <div className="w-px bg-ui-border"></div>
+            <div className="flex flex-col gap-2 w-1/2">
+              <div className="w-24 h-3 bg-white/10 rounded"></div>
+              <div className="w-16 h-8 bg-white/10 rounded mt-1"></div>
+              <div className="w-20 h-3 bg-white/5 rounded mt-1"></div>
+            </div>
+          </div>
+        </div>
+
+        {/* Test Matrix Skeleton */}
+        <div className="bg-ui-card border border-ui-border rounded-xl overflow-hidden mb-12">
+          {/* Matrix Header */}
+          <div className="p-6 md:px-8 border-b border-ui-border flex justify-between items-center bg-black/20">
+            <div className="flex flex-col gap-2">
+              <div className="w-24 h-3 bg-white/10 rounded"></div>
+              <div className="w-32 h-6 bg-white/5 rounded"></div>
+            </div>
+            <div className="w-28 h-8 bg-white/5 rounded-md border border-white/5"></div>
+          </div>
+
+          {/* Matrix Rows */}
+          <div className="flex flex-col">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="grid grid-cols-[1fr_auto] md:grid-cols-[2fr_1fr_auto] py-4 px-6 md:px-8 border-b border-ui-border-light items-center gap-y-2 md:gap-4 last:border-none">
+                <div className="flex items-center gap-3 col-span-2 md:col-span-1 pr-4">
+                  <div className="w-4 h-4 rounded-full bg-white/10 shrink-0 border border-white/5"></div>
+                  <div className="w-48 h-4 bg-white/5 rounded"></div>
+                </div>
+                <div className="md:text-right truncate col-span-1 md:col-span-1 ml-7 md:ml-0 flex justify-start md:justify-end">
+                  <div className="w-24 h-4 bg-white/5 rounded"></div>
+                </div>
+                <div className="flex justify-end col-span-1 md:col-span-1">
+                  <div className="w-12 h-4 bg-white/10 rounded"></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
       </div>
     </div>
   );
