@@ -24,9 +24,12 @@ export default function Navbar() {
             <div className="flex-1">
                 <Link href="/" className="flex items-center gap-3 w-fit">
                     <div className="flex">
+                    <span className="flex">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <rect width="24" height="24" rx="4" fill="#FF5B14" />
+                            <rect width="24" height="24" rx="4" className="fill-brand-orange" />
+                            <path d="M8 17L14 12L8 7" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
+                    </span>
                     </div>
                     <div className="flex flex-col">
                         <span className="font-display font-bold text-base leading-none tracking-tight text-white">GradeVisualizer</span>

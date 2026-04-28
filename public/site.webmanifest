@@ -1,6 +1,6 @@
 {
-  "name": "ChaiTracker",
-  "short_name": "Visualizer",
+  "name": "Visualizer",
+  "short_name": "GCA",
   "icons": [
     {
       "src": "/web-app-manifest-192x192.png",
@@ -15,7 +15,7 @@
       "purpose": "maskable"
     }
   ],
-  "theme_color": "#eef1ff",
-  "background_color": "#c9c9c9",
+  "theme_color": "#f4f4f4",
+  "background_color": "#f4f4f4",
   "display": "standalone"
 }
