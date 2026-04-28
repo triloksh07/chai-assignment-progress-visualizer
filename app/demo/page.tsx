@@ -4,41 +4,74 @@ const mockAssignments = [
   {
     id: 1,
     status: 'success',
-    course: 'SYSTEM ARCHITECTURE',
-    title: 'DeepSession Core',
-    commit: 'a3f91c2',
-    file: 'autograde.yml',
-    statusPill: 'Tests Passed',
+    course: 'BACKEND INFRA',
+    title: 'auth-api',
+    commit: '78ad4f8',
+    statusPill: 'Completed',
     score: 100,
-    tests: '24 / 24',
+    tests: '6 / 6',
     time: 'Cached',
     percent: 100
   },
   {
     id: 2,
     status: 'fetching',
-    course: 'BACKEND INFRA',
-    title: 'Zero-Dependency Auth',
-    commit: '7b2e40d',
-    file: 'classroom.yml',
-    statusPill: 'Extracting Logs...',
-    score: 82,
-    tests: '? / 15',
+    course: 'JAVASCRIPT FOUNDATIONS',
+    title: 'js-async-oops',
+    commit: 'df6cd85',
+    statusPill: 'In-progress',
+    score: 38,
+    tests: '? / 12',
     time: 'Running Cascade...',
-    percent: 82
+    percent: 38
   },
   {
     id: 3,
     status: 'error',
-    course: 'DATABASE DESIGN',
-    title: 'PostgreSQL Ticket System',
-    commit: '9c44b10',
-    file: 'test.yml',
-    statusPill: 'Rate Limit / 429',
-    score: 90,
-    tests: '18 / 20',
+    course: 'BACKEND INFRA',
+    title: 'image-upload-api',
+    commit: '8d2dad9',
+    statusPill: 'Pending',
+    score: 0,
+    tests: '0 / 6',
+    time: 'Cached',
+    percent: 0
+  },
+  {
+    id: 4,
+    status: 'success',
+    course: 'JAVASCRIPT FOUNDATIONS',
+    title: 'js-datatypes',
+    commit: '70c3832',
+    statusPill: 'Completed',
+    score: 100,
+    tests: '12 / 12',
+    time: 'Cached',
+    percent: 100
+  },
+  {
+    id: 5,
+    status: 'error',
+    course: 'JAVASCRIPT FOUNDATIONS',
+    title: 'js-dom',
+    commit: 'f32726a',
+    statusPill: 'Pending',
+    score: 0,
+    tests: '0 / 12',
     time: 'Offline (Stale)',
-    percent: 90
+    percent: 0
+  },
+  {
+    id: 6,
+    status: 'success',
+    course: 'BACKEND INFRA',
+    title: 'first-crud-app',
+    commit: 'b0f001a',
+    statusPill: 'Completed',
+    score: 100,
+    tests: '5 / 5',
+    time: 'Cached',
+    percent: 100
   }
 ];
 
@@ -54,7 +87,7 @@ export default function DemoDashboardPage() {
             <div className="flex flex-col gap-2">
               <div className="label-micro">CONTROL ROOM</div>
               <h1 className="font-display text-[2.5rem] font-extrabold leading-[1.1] tracking-tight text-white">
-                Tracking <span className="text-gradient">3 Repositories</span>.
+                Tracking <span className="text-gradient"> {mockAssignments.length} Repositories</span>
               </h1>
               <div className="font-mono text-[13px] text-text-muted mt-1">
                 You are viewing a static demonstration of the SWR polling engine.
@@ -94,10 +127,30 @@ export default function DemoDashboardPage() {
 function DemoAssignmentCard({ repo }: { repo: any }) {
   // Premium Tailwind Mapping (Identical to real dashboard)
   const stateMap = {
-    stale: { card: 'border-ui-border-light', pill: 'text-text-muted bg-white/5 border-white/10', bar: 'bg-text-dim', scoreText: 'text-white' },
-    fetching: { card: 'border-status-blue/30 shadow-[0_0_20px_rgba(52,152,219,0.05)]', pill: 'text-status-blue bg-status-blue/10 border-status-blue/20', bar: 'bg-status-blue', scoreText: 'text-text-dim' },
-    success: { card: 'border-status-green/30 shadow-[0_0_20px_rgba(46,204,113,0.05)]', pill: 'text-status-green bg-status-green/10 border-status-green/20', bar: 'bg-status-green', scoreText: 'text-white' },
-    error: { card: 'border-brand-orange/40 shadow-[0_0_20px_rgba(255,91,20,0.05)]', pill: 'text-brand-orange bg-brand-orange/10 border-brand-orange/20', bar: 'bg-brand-orange', scoreText: 'text-text-dim' }
+    stale: {
+      card: 'border-ui-border-light',
+      pill: 'text-text-muted bg-white/5 border-white/10',
+      bar: 'bg-text-dim',
+      scoreText: 'text-white'
+    },
+    fetching: {
+      card: 'border-status-blue/30 shadow-[0_0_20px_rgba(52,152,219,0.05)]',
+      pill: 'text-status-blue bg-status-blue/10 border-status-blue/20',
+      bar: 'bg-status-blue',
+      scoreText: 'text-text-dim'
+    },
+    success: {
+      card: 'border-status-green/30 shadow-[0_0_20px_rgba(46,204,113,0.05)]',
+      pill: 'text-status-green bg-status-green/10 border-status-green/20',
+      bar: 'bg-status-green',
+      scoreText: 'text-white'
+    },
+    error: {
+      card: 'border-brand-orange/40 shadow-[0_0_20px_rgba(255,91,20,0.05)]',
+      pill: 'text-brand-orange bg-brand-orange/10 border-brand-orange/20',
+      bar: 'bg-brand-orange',
+      scoreText: 'text-text-dim'
+    }
   };
 
   const current = stateMap[repo.status as keyof typeof stateMap];
